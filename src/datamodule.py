@@ -22,7 +22,6 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import Sampler
 from torchvision.transforms import v2
 
-
 class EODataset(Dataset):
     """Reads different Earth Observation data sources from a directory."""
 
@@ -30,73 +29,72 @@ class EODataset(Dataset):
         self, chips_path: List[Path], size: int, platforms: list, metadata: Box
     ) -> None:
         super().__init__()
-        self.chips_path = chips_path
-        self.size = size
+        self.chips_path = chips_path  
+        self.size = size 
         self.transforms = {}
-
-        # Generate transforms for each platform using a helper function
+        
         for platform in platforms:
-            mean = list(metadata[platform].bands.mean.values())
-            std = list(metadata[platform].bands.std.values())
-            self.transforms[platform] = self.create_transforms(mean, std)
+            mean = list(metadata[platform].bands.mean.values())  
+            std = list(metadata[platform].bands.std.values())  
+            self.transforms[platform] = self.create_transforms(mean, std)  # Create and store transforms
 
     def create_transforms(self, mean, std):
+        # Create a composition of transformations including flips and normalization
         return v2.Compose(
             [
-                v2.RandomHorizontalFlip(p=0.5),
-                v2.RandomVerticalFlip(p=0.5),
-                # v2.RandomCrop(size=(self.size, self.size)),
-                v2.Normalize(mean=mean, std=std),
+                v2.RandomHorizontalFlip(p=0.5),  # Random horizontal flip with 50% probability
+                v2.RandomVerticalFlip(p=0.5),  # Random vertical flip with 50% probability
+                # v2.RandomCrop(size=(self.size, self.size)),  # Random crop (commented out)
+                v2.Normalize(mean=mean, std=std),  # Normalize using mean and std
             ]
         )
 
     def __len__(self):
-        return len(self.chips_path)
-
+        return len(self.chips_path)  
+    
     def __getitem__(self, idx):
-        chip_path = self.chips_path[idx]
-        with np.load(chip_path, allow_pickle=False) as chip:
-            platform = chip_path.parent.name
+        chip_path = self.chips_path[idx]  
+        with np.load(chip_path, allow_pickle=False) as chip:  # Load the chip data
+            platform = chip_path.parent.name  # Get the platform name from the path
             if platform == "sentinel-1-rtc":
-                pixels = chip["pixels"].astype(np.float32)
+                pixels = chip["pixels"].astype(np.float32)  
                 pixels[pixels <= 0] = (
-                    1e-10  # replace corrupted pixels in sentinel-1-rtc with small value
+                    1e-10  
                 )
                 pixels = 10 * np.log10(
                     pixels
-                )  # convert to dB scale, more interpretable pixels
+                )  
             else:
-                pixels = chip["pixels"].astype(np.float32)
+                pixels = chip["pixels"].astype(np.float32)  
 
-            pixels = torch.from_numpy(pixels)
-            pixels = self.transforms[platform](pixels)
-
+            pixels = torch.from_numpy(pixels)  
+            pixels = self.transforms[platform](pixels) 
             time_tensor = torch.tensor(
                 np.hstack((chip["week_norm"], chip["hour_norm"]), dtype=np.float32)
-            )
+            )  # Create a tensor for time information
             latlon_tensor = torch.tensor(
                 np.hstack((chip["lat_norm"], chip["lon_norm"]), dtype=np.float32)
-            )
+            )  # Create a tensor for latitude and longitude information
 
             # Randomly set time & latlon to zero for 20% of the chips
-            if random.random() < 0.2:  # noqa: PLR2004
-                time_tensor.zero_()
-                latlon_tensor.zero_()
+            if random.random() < 0.2:  # 20% probability
+                time_tensor.zero_()  # Set time tensor to zero
+                latlon_tensor.zero_()  # Set latlon tensor to zero
 
             # Prepare additional information
             additional_info = {
-                "platform": platform,
-                "time": time_tensor,
-                "latlon": latlon_tensor,
+                "platform": platform,  # Platform name
+                "time": time_tensor,  # Time tensor
+                "latlon": latlon_tensor,  # Latitude and longitude tensor
             }
 
-        return {"pixels": pixels, **additional_info}
+        return {"pixels": pixels, **additional_info}  # Return the data as a dictionary
 
 
 class ClaySampler(Sampler):
     def __init__(self, dataset, platforms, batch_size):
         self.dataset = dataset
-        self.platforms = platforms
+        self.platforms = platforms  
         self.batch_size = batch_size
 
         self.cubes_per_platform = {platform: [] for platform in platforms}

@@ -60,12 +60,13 @@ class Encoder(nn.Module):
 
     def add_encodings(self, patches, time, latlon, gsd):
         """Add position encoding to the patches"""
-        B, L, D = patches.shape
+        B, L, D = patches.shape # B = batch size, L = num_patches, D = dim
 
-        grid_size = int(math.sqrt(L))
+        grid_size = int(math.sqrt(L)) 
         self.num_patches = grid_size**2
 
         pos_encoding = (
+            # 
             posemb_sincos_2d_with_gsd(
                 h=grid_size,
                 w=grid_size,
@@ -76,7 +77,9 @@ class Encoder(nn.Module):
             .detach()
         )  # [L (D - 8)]
 
-        time_latlon = torch.hstack((time, latlon)).to(patches.device).detach()  # [B 8]
+
+        # horizontally stack time and latlon tensors and move them to same device as patches
+        time_latlon = torch.hstack((time, latlon)).to(patches.device).detach()  # [B 8] 
 
         pos_encoding = repeat(pos_encoding, "L D -> B L D", B=B)  # [B L (D - 8)]
         time_latlon = repeat(time_latlon, "B D -> B L D", L=L)  # [B L 8]

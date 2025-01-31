@@ -3,6 +3,9 @@ from lightning.pytorch.callbacks.finetuning import BaseFinetuning
 
 
 class ProgressiveResizing(Callback):
+    """
+    Used to progressively resize images during training
+    """
     def __init__(self):
         self.resize_schedule = {
             0: {"batch_size": 4, "num_workers": 4, "size": 64},
@@ -32,6 +35,9 @@ class ProgressiveResizing(Callback):
 
 
 class LayerwiseFinetuning(BaseFinetuning):
+    """
+    used for finetuning layers of neural network
+    """
     def __init__(self, phase, train_bn=True):
         """Initializes with phase & batch-norm information.
 
